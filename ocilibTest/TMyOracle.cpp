@@ -1,19 +1,36 @@
 // -----------------------------------------------------------------------------
 #include "TMyOracle.h"	
+#include "ocilib.hpp"
+#include "TMyOracleResultSet.h"
 #include "utils.h"
+// -----------------------------------------------------------------------------
+std::atomic<int> TMyOracle::m_instanceCount = 0;
 // -----------------------------------------------------------------------------
 
 TMyOracle::TMyOracle()
 	: m_Connection{nullptr}
-{
-	
+{	
+	if(m_instanceCount++ == 0)
+	{
+		// Initialize OCI
+		if (!OCI_Initialize(NULL, NULL, OCI_ENV_THREADED | OCI_ENV_CONTEXT))
+		{
+			std::cerr << "Failed to initialize OCI" << std::endl;
+			throw std::runtime_error("OCI Initialization failed");
+		}
+	}	
 }
 
 // -----------------------------------------------------------------------------
 TMyOracle::~TMyOracle()
 {
-	Disconnect();
-	OCI_Cleanup();
+	Disconnect();	
+
+	if(--m_instanceCount == 0)
+	{
+		// Cleanup OCI
+		OCI_Cleanup();
+	}
 }
 // -----------------------------------------------------------------------------
 
@@ -23,19 +40,12 @@ bool TMyOracle::Connect(const std::string& user, const std::string& password, co
 	Disconnect();
 
 	try
-	{
-		// Initialize OCI
-		if (!OCI_Initialize(NULL, NULL, OCI_ENV_THREADED | OCI_ENV_CONTEXT))
-		{
-			std::cerr << "Failed to initialize OCI" << std::endl;
-			return false;
-		}
-
+	{		
 		// Create a new OCI environment
 		m_Connection = OCI_ConnectionCreate(db.c_str(), user.c_str(), password.c_str(), OCI_SESSION_DEFAULT);
 		if (!m_Connection)
 		{
-			std::cerr << "Failed to connect to database: " << OCI_ErrorGetString(OCI_GetLastError()) << std::endl;
+			std::cerr << "[FATAL] TMyOracle::Connect: Failed to connect to database: " << OCI_ErrorGetString(OCI_GetLastError()) << std::endl;
 			return false;
 		}
 				
@@ -52,7 +62,7 @@ bool TMyOracle::Connect(const std::string& user, const std::string& password, co
 	}	
 	catch (const std::exception& ex)
 	{
-		std::cerr << "Exception: " << ex.what() << std::endl;		
+		std::cerr << "[EXCEPTION] TMyOracle::Connect: " << ex.what() << std::endl;
 	}
 
 	return false;
@@ -93,7 +103,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			return nullptr;
 		}
 		// Create a new statement
-		OCI_Statement* stmt = OCI_StatementCreate(m_Connection);
+		TMyOracleStatement stmt (m_Connection);
 		if (!stmt)
 		{
 			std::cerr << "Failed to create statement" << std::endl;
@@ -102,8 +112,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 		// Prepare and execute the statement
 		if (!OCI_Prepare(stmt, query.c_str()))
 		{
-			std::cerr << "Failed to prepare statement: " << OCI_ErrorGetString(OCI_GetLastError()) << std::endl;
-			OCI_StatementFree(stmt);
+			std::cerr << "Failed to prepare statement: " << OCI_ErrorGetString(OCI_GetLastError()) << std::endl;			
 			return nullptr;
 		}
 		// Execute the statement
@@ -122,15 +131,15 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 		
 		// Check if the result set is valid and return it
 		if (result_set)
-		{
-			// Free the statement			
-			OCI_StatementFree(stmt);
+		{			
 			return result_set;
 		}
 	}
 	catch (const std::exception& ex)
 	{
-		std::cerr << "Exception: " << ex.what() << std::endl;
+		m_lst_error = OCI_ErrorGetString(OCI_GetLastError());
+
+		std::cerr << "[EXCEPTION] TMyOracle::ExecuteQuery: " << ex.what() << std::endl;
 	}
 
 	// Rollback in case of error

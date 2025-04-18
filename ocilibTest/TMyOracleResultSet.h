@@ -4,8 +4,7 @@
 #include "ocilib.hpp"
 #include "utils.h"
 // -----------------------------------------------------------------------------
-using namespace ocilib;
-// -----------------------------------------------------------------------------
+
 // This class is a placeholder for the actual implementation of TMyOracleResultSet.
 class TMyOracleResultSet
 {

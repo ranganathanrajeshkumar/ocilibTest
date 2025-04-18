@@ -1,106 +1,26 @@
 // -----------------------------------------------------------------------------
 #include "ocilib.hpp"
 #include "TMyOracle.h"
+#include "SqlConnection.h"
 // -----------------------------------------------------------------------------
-using namespace ocilib;
+std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
 // -----------------------------------------------------------------------------
-
-class SqlConnection
-{
-public:
-	explicit SqlConnection(const std::string& user, const std::string& password, const std::string& db)
-		: m_user(user), m_password(password), m_db(db) 
-    {
-	}
-	
-    ~SqlConnection()
-    {
-		if (!m_sqls.empty())
-		{
-			Disconnect();
-		}		
-    }
-
-private:
-	SqlConnection(const SqlConnection&) = delete;
-	SqlConnection& operator=(const SqlConnection&) = delete;
-	SqlConnection(SqlConnection&&) = delete;
-	SqlConnection& operator=(SqlConnection&&) = delete;
-	
-    void Disconnect()
-    {
-        for (auto& sql : m_sqls)
-        {
-            if (sql)
-            {
-                sql->Disconnect();
-            }
-        }
-    }
-
-
-public:
-    bool Build()
-	{
-        try
-        {
-            for (int i = 0; i < m_max_connections; ++i)
-            {
-                std::unique_ptr<TMyOracle> sql(new TMyOracle());
-                if (!sql->Connect(m_user, m_password, m_db))
-                {
-                    throw std::exception("Failed to connect to database");
-                }
-
-                m_sqls.emplace_back(std::move(sql));
-            }
-
-            return true;
-        }
-        catch (const std::exception& ex)
-        {
-            std::cerr << "[EXCEPTION] SqlConnection::Build(): " << ex.what() << std::endl;
-        }
-        return false;
-	}
-
-	TMyOracle* GetConnection()
-	{
-		if (m_sqls.empty())
-		{
-			std::cerr << "[WARN] SqlConnection::GetConnection(): No available connections" << std::endl;
-			return nullptr;
-		}
-		m_curr_conn_index = (m_curr_conn_index + 1) % m_sqls.size();
-		return m_sqls[m_curr_conn_index].get();
-	}
-
-	
-private:
-	std::vector<std::unique_ptr<TMyOracle>> m_sqls;
-	
-    int m_max_connections = 10;
-	int m_curr_conn_index = 0;
-
-	std::string m_user;
-	std::string m_password;
-	std::string m_db;
-
-};
 
 class Employee
 {
 public:
 	int m_id;
-	std::string m_first_name;
+	int m_dept_id;
+    std::string m_first_name;
 	std::string m_last_name;
 	std::string m_dob;
 	std::string m_address;
+	std::string m_department;
+
 
 	explicit Employee(TMyOracle* sql, int id) 
-		: sql(sql), m_id(id), m_first_name(""), m_last_name(""), m_dob(""), m_address("")
+		: sql(sql), m_id(id), m_dept_id(0), m_first_name(""), m_last_name(""), m_dob(""), m_address(""), m_department("")
     {}
-
 	
 	bool Build() 
 	{
@@ -118,19 +38,23 @@ public:
 
         std::string id = std::to_string(m_id);
 
+		const std::string query = "SELECT FIRSTNAME, LASTNAME, DOB, ADDRESS, DEPT_ID, DEPT_DESC FROM employee e INNER JOIN department d ON d.id = e.dept_id WHERE e.id =  " + id;
+
         // Execute a query
-        std::unique_ptr<TMyOracleResultSet> rs(sql->ExecuteQuery("SELECT * FROM Employee WHERE ID=" + id));
+        std::unique_ptr<TMyOracleResultSet> rs(sql->ExecuteQuery(query));
         if (!rs || !rs->Rows())
         {
-            std::cerr << "[ERROR] Employee::Build(): Failed to execute query" << std::endl;
+            std::cerr << "[WARN] Employee::Build(): Unable to execute the query" << std::endl;
             return false;
         }
 
 		// Fetch the result
-		m_first_name = rs->Get("FIRSTNAME");
-		m_last_name = rs->Get("LASTNAME");
-		m_dob = rs->Get("DOB");
-		m_address = rs->Get("ADDRESS");        
+		m_first_name    = rs->Get("FIRSTNAME");
+		m_last_name     = rs->Get("LASTNAME");
+		m_dob           = rs->Get("DOB");
+		m_address       = rs->Get("ADDRESS");   
+		m_dept_id       = std::atoi(rs->Get("DEPT_ID").c_str());
+		m_department    = rs->Get("DEPT_DESC");
 
         return true;
 	}
@@ -140,9 +64,8 @@ public:
         std::ostringstream out;
 		out << std::setw(10) << m_id            << " | "
 			<< std::setw(15) << m_first_name    << " | "
-			<< std::setw(15) << m_last_name     << " | "
-			<< std::setw(15) << m_dob           << " | "
-			<< std::setw(30) << m_address;
+			<< std::setw(15) << m_last_name     << " | "			
+			<< std::setw(30) << m_department;
         
 		return out.str();
 	}
@@ -150,16 +73,17 @@ public:
 private:
     TMyOracle* sql;
 };
+ // -----------------------------------------------------------------------------
 
-
-SqlConnection g_sql_conn("dev", "123456", "orclpdb");
 
 int main(int argc, const char* argv[])
 {
     int tries = 0;
 
+    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb");
+
 	// Initialize OCI
-    if(!g_sql_conn.Build())
+    if(!g_sql_conn->Build())
 	{
 		std::cerr << "[ERROR] Main: Failed to initialize OCI" << std::endl;
 		return EXIT_FAILURE;
@@ -169,7 +93,7 @@ int main(int argc, const char* argv[])
 	for (int i = 1; i <= 1000; ++i)
 	{
 		// Get a connection
-        auto sql = g_sql_conn.GetConnection();
+        auto sql = g_sql_conn->GetConnection();
         if (!sql)
         {
             std::cerr << "[ERROR] Main: Failed to get SQL connection" << std::endl;
