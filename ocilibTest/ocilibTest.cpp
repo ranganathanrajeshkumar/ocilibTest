@@ -1,6 +1,7 @@
 // -----------------------------------------------------------------------------
 #include "ocilib.hpp"
 #include "TMyOracle.h"
+#include "TMyOracleResultSet.h"
 #include "SqlConnection.h"
 // -----------------------------------------------------------------------------
 std::unique_ptr<SqlConnection> g_sql_conn = nullptr;

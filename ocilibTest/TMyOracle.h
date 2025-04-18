@@ -3,7 +3,6 @@
 #define __TMYORACLE_H__
 // -----------------------------------------------------------------------------
 #include "ocilib.hpp"
-#include "TMyOracleResultSet.h"
 #include <atomic>
 // -----------------------------------------------------------------------------
 using namespace ocilib;
