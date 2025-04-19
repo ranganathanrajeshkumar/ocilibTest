@@ -4,7 +4,9 @@
 #include "TMyOracleResultSet.h"
 #include "SqlConnection.h"
 // -----------------------------------------------------------------------------
-std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
+static std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
+static auto g_oci_type = OCI_TYPE::OCI_CXX_API;
+
 // -----------------------------------------------------------------------------
 
 class Employee
@@ -77,18 +79,10 @@ private:
     TMyOracle* sql;
 };
  // -----------------------------------------------------------------------------
-
-
-int main(int argc, const char* argv[])
-{
-    auto oci_type = OCI_TYPE::OCI_CXX_API;
-
-    if (oci_type == OCI_TYPE::OCI_CXX_API)
-    {
-		ocilib::Environment::Initialize();
-    }
+int ocitest()
+{   
 	// Initialize sql connection
-    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb", oci_type);
+    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb", g_oci_type);
 
 	// Build the connection pool
     if(!g_sql_conn->Build())
@@ -135,12 +129,32 @@ int main(int argc, const char* argv[])
     
 	g_sql_conn->Disconnect();
 
-	// Cleanup OCI CXX API
-	if (oci_type == OCI_TYPE::OCI_CXX_API)
-	{
-		ocilib::Environment::Cleanup();
-	}	
 	return EXIT_SUCCESS;
+}
+
+int main(int argc, const char* argv[])
+{
+    if (g_oci_type == OCI_TYPE::OCI_CXX_API)
+    {
+        ocilib::Environment::Initialize();
+    }
+
+    auto res = 0;
+	try
+	{
+		res = ocitest();
+	}
+	catch (std::exception& ex)
+	{
+		std::cout << ex.what() << std::endl;
+	}
+
+    // Cleanup OCI CXX API
+    if (g_oci_type == OCI_TYPE::OCI_CXX_API)
+    {
+        ocilib::Environment::Cleanup();
+    }
+	return res;
 }
 
 /*
