@@ -103,6 +103,7 @@ public:
     }
                
     static TMyOracleResultSet* ExtractResultSet(OCI_Resultset* rs);
+	static TMyOracleResultSet* ExtractResultSet(ocilib::Resultset* rs);
 
 	std::vector<std::vector<std::string>> m_rows;
     std::vector<std::string> m_cols;

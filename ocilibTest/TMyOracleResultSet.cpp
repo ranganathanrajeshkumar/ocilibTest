@@ -55,3 +55,45 @@ TMyOracleResultSet* TMyOracleResultSet::ExtractResultSet(OCI_Resultset* rs)
     return resultSet;
 }
 //----------------------------------------------------------------------------
+TMyOracleResultSet* TMyOracleResultSet::ExtractResultSet(ocilib::Resultset* rs)
+{
+	if (!rs)
+	{
+		std::cerr << "[ERROR] TMyOracleResultSet::ExtractResultSet: Resultset is null" << std::endl;
+		return nullptr;
+	}
+	if (rs->IsNull())
+	{
+		std::cerr << "[ERROR] TMyOracleResultSet::ExtractResultSet: Resultset is empty" << std::endl;
+		return nullptr;
+	}
+
+	TMyOracleResultSet* resultSet = new TMyOracleResultSet();
+	while (rs->Next())
+	{
+		std::vector<std::string> row;
+		const unsigned int colCount = rs->GetColumnCount();
+		for (unsigned int i = 1; i <= colCount; ++i)
+		{
+			const auto col = rs->GetColumn(i);
+			const auto name = col.GetName();
+			const auto type = col.GetType();
+            resultSet->AddColumn(std::to_upper(name));
+
+
+			if (type == OCI_CDT_DATETIME)
+			{
+				ocilib::Date dt = rs->Get<ocilib::Date>(i);
+				std::string dateStr = dt.ToString("YYYY-MM-DD HH24:MI:SS");
+				row.emplace_back(dateStr);				
+			}
+            else
+            {
+                rs->IsNull() ? row.emplace_back("") : row.emplace_back(rs->Get<std::string>(i));
+            }			
+		}
+		resultSet->AddRow(row);
+	}
+	return resultSet;	    
+}
+//----------------------------------------------------------------------------

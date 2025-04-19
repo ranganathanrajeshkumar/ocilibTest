@@ -10,19 +10,13 @@ std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
 class Employee
 {
 public:
-	int m_id;
-	int m_dept_id;
-    std::string m_first_name;
-	std::string m_last_name;
-	std::string m_dob;
-	std::string m_address;
-	std::string m_department;
-
 
 	explicit Employee(TMyOracle* sql, int id) 
 		: sql(sql), m_id(id), m_dept_id(0), m_first_name(""), m_last_name(""), m_dob(""), m_address(""), m_department("")
     {}
 	
+    ~Employee() = default;
+
 	bool Build() 
 	{
 		if (!sql)
@@ -72,6 +66,14 @@ public:
 	}
 
 private:
+    int m_id;
+    int m_dept_id;
+    std::string m_first_name;
+    std::string m_last_name;
+    std::string m_dob;
+    std::string m_address;
+    std::string m_department;
+
     TMyOracle* sql;
 };
  // -----------------------------------------------------------------------------
@@ -79,43 +81,65 @@ private:
 
 int main(int argc, const char* argv[])
 {
-    int tries = 0;
+    auto oci_type = OCI_TYPE::OCI_CXX_API;
 
-    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb");
+    if (oci_type == OCI_TYPE::OCI_CXX_API)
+    {
+		ocilib::Environment::Initialize();
+    }
+	// Initialize sql connection
+    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb", oci_type);
 
-	// Initialize OCI
+	// Build the connection pool
     if(!g_sql_conn->Build())
 	{
-		std::cerr << "[ERROR] Main: Failed to initialize OCI" << std::endl;
+		std::cerr << "[ERROR] Main: Failed to build the SQL connection pool" << std::endl;
 		return EXIT_FAILURE;
 	}
-		
-    std::vector<std::unique_ptr<Employee>> employees;
-	for (int i = 1; i <= 1000; ++i)
-	{
-		// Get a connection
-        auto sql = g_sql_conn->GetConnection();
-        if (!sql)
-        {
-            std::cerr << "[ERROR] Main: Failed to get SQL connection" << std::endl;
-            return EXIT_FAILURE;
-        }
-    
-		// Create an employee object
-		auto emp = std::make_unique<Employee>(sql, i);
-		if (!emp->Build())
-		{
-			std::cerr << "[WARN] Main: Failed to build employee for id=" + std::to_string(i) << std::endl;
-			continue;
-		}
-		employees.push_back(std::move(emp));
-	}
-
-	for (const auto& emp : employees)
-	{
-		std::cout << emp->ToString() << std::endl;
-	}
+	// Get the number of loops from the user
+	std::cout << "Enter the number of loops: ";
+	int loops = 0;
+	std::cin >> loops;
 	
+    auto tries = 0;
+    while (tries++ < loops)
+    {
+        std::vector<std::unique_ptr<Employee>> employees;
+        for (int i = 1; i <= 1000; ++i)
+        {
+            // Get a connection
+            auto sql = g_sql_conn->GetConnection();
+            if (!sql)
+            {
+                std::cerr << "[ERROR] Main: Failed to get SQL connection" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // Create an employee object
+            auto emp = std::make_unique<Employee>(sql, i);
+            if (!emp->Build())
+            {
+                std::cerr << "[WARN] Main: Failed to build employee for id=" + std::to_string(i) << std::endl;
+                continue;
+            }
+            employees.push_back(std::move(emp));
+        }
+
+        for (const auto& emp : employees)
+        {
+            std::cout << emp->ToString() << std::endl;
+        }
+
+        employees.clear();
+    }
+    
+	g_sql_conn->Disconnect();
+
+	// Cleanup OCI CXX API
+	if (oci_type == OCI_TYPE::OCI_CXX_API)
+	{
+		ocilib::Environment::Cleanup();
+	}	
 	return EXIT_SUCCESS;
 }
 
@@ -128,25 +152,40 @@ int main(void)
 
         Connection con("orclpdb", "dev", "123456");
         con.SetAutoCommit(true);
+        //con.SetStatementCacheSize(10);
 
-        Statement st(con);
-        
-        st.Execute("select * from Family");
-
-        Resultset rs = st.GetResultset();
-
-        while (!rs.IsNull() && rs.Next())
+        // Get the number of loops from the user
+        std::cout << "Enter the number of loops: ";
+        int loops = 0;
+        std::cin >> loops;
+        if (loops <= 0)
         {
-            std::cout << std::setw(10) << rs.Get<ostring>(1) << " | "
-                      << std::setw(20) << rs.Get<ostring>(2) << " | "
-                      << std::setw(20) << rs.Get<ostring>(3) << " | "
-                      << std::setw(11) << rs.Get<ostring>(4) << " | "
-                      << std::setw(48) << rs.Get<ostring>(5) << " | "
-                      << std::setw(20) << rs.Get<ostring>(6) << "\r\n"
-                      << std::endl;
+            std::cerr << "[ERROR] Main: Invalid number of loops" << std::endl;
+            return EXIT_FAILURE;
         }
 
+        auto tries = 0;
+        while (tries++ < loops)
+        {
+            for (int i = 0; i < 1000; ++i)
+            {
+                Statement st(con);
 
+                const std::string query = "SELECT FIRSTNAME, LASTNAME, DOB, ADDRESS, DEPT_ID, DEPT_DESC FROM employee e INNER JOIN department d ON d.id = e.dept_id WHERE e.id =  " + std::to_string(i + 1);
+                st.Execute(query);
+
+                Resultset rs = st.GetResultset();
+
+                while (!rs.IsNull() && rs.Next())
+                {
+                    std::cout << std::setw(10) << i+1 << " | "
+                        << std::setw(20) << rs.Get<ostring>(1) << " " << rs.Get<ostring>(2) << " | "
+                        << std::setw(20) << rs.Get<ostring>(6) <<  " |\r\n"
+                        << std::endl;
+                }
+
+            }
+        }
         //st.Prepare("INSERT INTO NAME (FIRSTNAME, LASTNAME, PHONE, ID_NEW) VALUES ('Samyukta', 'RajeshKumar', '1212121212', '5' ) RETURNING ID_NEW INTO :code");
     
         //st.Register<int>(":code");

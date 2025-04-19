@@ -8,26 +8,33 @@
 class SqlConnection
 {
 public:
-	explicit SqlConnection(const std::string& user, const std::string& password, const std::string& db)
-		: m_user(user), m_password(password), m_db(db)
+	explicit SqlConnection(const std::string& user, const std::string& password, const std::string& db, OCI_TYPE type = OCI_TYPE::OCI_C_API)
+		: m_user(user), m_password(password), m_db(db), m_type(type)
 	{
-	}
-
-	~SqlConnection()
-	{
-		if (!m_sqls.empty())
+		if (m_type == OCI_TYPE::OCI_C_API)
 		{
-			Disconnect();
+			// Initialize OCI C API
+			OCI_Initialize(nullptr, nullptr, OCI_ENV_DEFAULT);
 		}
 	}
+
+	virtual ~SqlConnection()
+	{	
+		if (m_type == OCI_TYPE::OCI_C_API)
+		{
+			// Cleanup OCI C API
+			OCI_Cleanup();
+		}
+	}
+
+	void Disconnect();
 
 private:
 	SqlConnection(const SqlConnection&) = delete;
 	SqlConnection& operator=(const SqlConnection&) = delete;
 	SqlConnection(SqlConnection&&) = delete;
 	SqlConnection& operator=(SqlConnection&&) = delete;
-
-	void Disconnect();
+	
 
 public:
 	bool Build();
@@ -39,10 +46,11 @@ private:
 
 	int m_max_connections = 10;
 	int m_curr_conn_index = 0;
-
+	OCI_TYPE m_type;
 	std::string m_user;
 	std::string m_password;
 	std::string m_db;
+
 
 };
 

@@ -18,7 +18,7 @@ bool SqlConnection::Build()
 	{
 		for (int i = 0; i < m_max_connections; ++i)
 		{
-			std::unique_ptr<TMyOracle> sql(new TMyOracle());
+			std::unique_ptr<TMyOracle> sql(new TMyOracle(m_type));
 			if (!sql->Connect(m_user, m_password, m_db))
 			{
 				return false;

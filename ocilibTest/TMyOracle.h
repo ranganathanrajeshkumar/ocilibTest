@@ -4,8 +4,15 @@
 // -----------------------------------------------------------------------------
 #include "ocilib.hpp"
 #include <atomic>
+#include <memory>
 // -----------------------------------------------------------------------------
 using namespace ocilib;
+// -----------------------------------------------------------------------------
+enum class OCI_TYPE
+{
+	OCI_C_API = 1,
+	OCI_CXX_API = 2
+};
 // -----------------------------------------------------------------------------
 class TMyOracle;
 class TMyOracleStatement;
@@ -27,27 +34,47 @@ public:
 	TMyOracleStatement(TMyOracleStatement&& other) noexcept : stmt(other.stmt) { other.stmt = nullptr; }
 
 	operator OCI_Statement* () const { return stmt; }
+	
 };
 
 class TMyOracle
 {
 public:
-	TMyOracle();
+	
+	explicit TMyOracle(OCI_TYPE type = OCI_TYPE::OCI_C_API);
 	virtual ~TMyOracle();
 	bool Connect(const std::string& user, const std::string& password, const std::string& db);
 	void Disconnect();
 	bool IsConnected() const;
-	OCI_Connection* GetConnection() const;
+
+	template<typename T>
+	T* GetConnection()
+	{
+		if (m_type == OCI_TYPE::OCI_CXX_API)
+		{
+			return m_conn.get();
+		}
+		else
+		{
+			return reinterpret_cast<T*>(m_Connection);
+		}
+	}
+
+	
 	std::string GetLastError() const { return m_lst_error; }
 	std::string GetLastQuery() const { return m_lst_query; }
+
 	TMyOracleResultSet* ExecuteQuery(const std::string& query);
 
 private:
 	std::string m_lst_query;
 	std::string m_lst_error;
 
-	static std::atomic<int> m_instanceCount;
+	OCI_TYPE m_type;
+	
 	OCI_Connection* m_Connection;
+
+	std::unique_ptr<Connection> m_conn = nullptr;
 };
 
 // -----------------------------------------------------------------------------
