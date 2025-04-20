@@ -146,7 +146,7 @@ int main(int argc, const char* argv[])
         }
 
         std::vector<std::thread> oci_test_threads;
-		for (int i = 0; i < 2; ++i)
+		for (int i = 0; i < 20; ++i)
 		{
             auto sql = g_sql_conn->GetConnection();
 			oci_test_threads.emplace_back(ocitest, sql);
