@@ -10,6 +10,8 @@ void SqlConnection::Disconnect()
 			sql->Disconnect();
 		}
 	}
+
+	m_sqls.clear();
 }
 // -----------------------------------------------------------------------------	
 bool SqlConnection::Build()

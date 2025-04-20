@@ -7,13 +7,21 @@
 
 TMyOracle::TMyOracle(OCI_TYPE type)
 	: m_Connection{ nullptr }, m_type{ type }, m_lst_query{}, m_lst_error{}
-{			
+{
+	if (m_type == OCI_TYPE::OCI_CXX_API)
+	{
+		m_mutex = ocilib::Mutex::Create();
+	}
 }
 
 // -----------------------------------------------------------------------------
 TMyOracle::~TMyOracle()
 {
 	Disconnect();	
+	if (m_type == OCI_TYPE::OCI_CXX_API)
+	{
+		ocilib::Mutex::Destroy(m_mutex);
+	}
 }
 // -----------------------------------------------------------------------------
 
@@ -27,7 +35,7 @@ bool TMyOracle::Connect(const std::string& user, const std::string& password, co
 		if (m_type == OCI_TYPE::OCI_CXX_API)
 		{
 			// Create a new OCI C++ environment
-			m_conn = std::make_unique<Connection>(db, user, password);
+			m_conn = std::make_unique<Connection>(db, user, password, Environment::SessionDefault);
 			if (!m_conn || m_conn->IsNull())
 			{
 				std::cerr << "[FATAL] TMyOracle::Connect: Failed to connect to database: " << std::endl;
@@ -103,22 +111,27 @@ void TMyOracle::Disconnect()
 // -----------------------------------------------------------------------------
 bool TMyOracle::IsConnected() const
 {
+	//ocilib::Mutex::Acquire(m_mutex);
+
+	bool result = false;
+
 	if (m_type == OCI_TYPE::OCI_C_API)
 	{
 		if (m_Connection)
 		{
-			return OCI_IsConnected(m_Connection);
+			result = OCI_IsConnected(m_Connection);
 		}
 	}
 	else if (m_type == OCI_TYPE::OCI_CXX_API)
 	{
 		if (m_conn)
 		{
-			return (!m_conn->IsNull() && m_conn->IsServerAlive());
+			result = (!m_conn->IsNull() && m_conn->IsServerAlive());
 		}
 	}
 	
-	return false;
+	//ocilib::Mutex::Release(m_mutex);
+	return result;
 }
 // -----------------------------------------------------------------------------
 TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
@@ -129,6 +142,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 		return nullptr;
 	}
 
+	//ocilib::Mutex::Acquire(m_mutex);
 	try
 	{
 		if (m_type == OCI_TYPE::OCI_C_API)
@@ -136,6 +150,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			if (!m_Connection)
 			{
 				std::cerr << "Not connected to database" << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 			// Create a new statement
@@ -143,6 +158,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			if (!stmt)
 			{
 				std::cerr << "Failed to create statement" << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 			// Prepare and execute the statement
@@ -150,6 +166,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			{
 				m_lst_error = OCI_ErrorGetString(OCI_GetLastError());
 				std::cerr << "Failed to prepare statement: " << m_lst_error << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 			// Execute the statement
@@ -158,6 +175,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 				m_lst_error = OCI_ErrorGetString(OCI_GetLastError());
 				std::cerr << "Failed to execute statement: " << m_lst_error << std::endl;
 				OCI_StatementFree(stmt);
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 
@@ -172,14 +190,16 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			// Check if the result set is valid and return it
 			if (result_set)
 			{
+				//ocilib::Mutex::Release(m_mutex);
 				return result_set;
 			}
 		}
 		else if (m_type == OCI_TYPE::OCI_CXX_API)
 		{
-			if (!m_conn)
+			if (!m_conn || m_conn->IsNull() || !m_conn->IsServerAlive())
 			{
 				std::cerr << "Not connected to database" << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 
@@ -188,6 +208,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			if (stmt.IsNull())
 			{
 				std::cerr << "Failed to create statement" << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 
@@ -205,6 +226,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			if (rs.IsNull())
 			{
 				std::cerr << "Failed to get result set" << std::endl;
+				//ocilib::Mutex::Release(m_mutex);
 				return nullptr;
 			}
 
@@ -214,6 +236,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 			// Check if the result set is valid and return it
 			if (result_set)
 			{
+				//ocilib::Mutex::Release(m_mutex);
 				return result_set;
 			}
 		}
@@ -227,6 +250,8 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 
 	// Rollback in case of error
 	OCI_Rollback(m_Connection);
+	
+	//ocilib::Mutex::Release(m_mutex);
 
 	return nullptr;
 }

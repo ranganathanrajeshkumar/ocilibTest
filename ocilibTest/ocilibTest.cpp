@@ -3,9 +3,10 @@
 #include "TMyOracle.h"
 #include "TMyOracleResultSet.h"
 #include "SqlConnection.h"
+#include <thread>
 // -----------------------------------------------------------------------------
 static std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
-static auto g_oci_type = OCI_TYPE::OCI_CXX_API;
+static auto g_oci_type = OCI_TYPE::OCI_C_API;
 
 // -----------------------------------------------------------------------------
 
@@ -79,36 +80,29 @@ private:
     TMyOracle* sql;
 };
  // -----------------------------------------------------------------------------
-int ocitest()
+int ocitest(TMyOracle* sql)
 {   
-	// Initialize sql connection
-    g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb", g_oci_type);
-
-	// Build the connection pool
-    if(!g_sql_conn->Build())
+    if (!sql)
+    {
+        std::cerr << "[ERROR] ocitest: Failed to get SQL connection" << std::endl;
+        return EXIT_FAILURE;
+    }
+	if (!sql->IsConnected())
 	{
-		std::cerr << "[ERROR] Main: Failed to build the SQL connection pool" << std::endl;
+		std::cerr << "[ERROR] ocitest: SQL connection is not connected" << std::endl;
 		return EXIT_FAILURE;
 	}
 	// Get the number of loops from the user
-	std::cout << "Enter the number of loops: ";
-	int loops = 0;
-	std::cin >> loops;
+	//std::cout << "Enter the number of loops: ";
+	int loops = 100;
+	//std::cin >> loops;
 	
     auto tries = 0;
     while (tries++ < loops)
     {
         std::vector<std::unique_ptr<Employee>> employees;
         for (int i = 1; i <= 1000; ++i)
-        {
-            // Get a connection
-            auto sql = g_sql_conn->GetConnection();
-            if (!sql)
-            {
-                std::cerr << "[ERROR] Main: Failed to get SQL connection" << std::endl;
-                return EXIT_FAILURE;
-            }
-
+        {                                   
             // Create an employee object
             auto emp = std::make_unique<Employee>(sql, i);
             if (!emp->Build())
@@ -126,9 +120,7 @@ int ocitest()
 
         employees.clear();
     }
-    
-	g_sql_conn->Disconnect();
-
+    	
 	return EXIT_SUCCESS;
 }
 
@@ -136,13 +128,39 @@ int main(int argc, const char* argv[])
 {
     if (g_oci_type == OCI_TYPE::OCI_CXX_API)
     {
-        ocilib::Environment::Initialize();
+        ocilib::Environment::Initialize(Environment::Default | Environment::Threaded );
+        ocilib::Environment::EnableWarnings(true);
     }
 
     auto res = 0;
 	try
 	{
-		res = ocitest();
+        // Initialize sql connection
+        g_sql_conn = std::make_unique<SqlConnection>("dev", "123456", "orclpdb", g_oci_type);
+
+        // Build the connection pool
+        if (!g_sql_conn->Build())
+        {
+            std::cerr << "[ERROR] Main: Failed to build the SQL connection pool" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        std::vector<std::thread> oci_test_threads;
+		for (int i = 0; i < 2; ++i)
+		{
+            auto sql = g_sql_conn->GetConnection();
+			oci_test_threads.emplace_back(ocitest, sql);
+		}
+		for (auto& thread : oci_test_threads)
+		{
+			if (thread.joinable())
+			{
+				thread.join();
+			}
+		}
+		std::cout << "All threads completed successfully." << std::endl;
+
+        g_sql_conn->Disconnect();
 	}
 	catch (std::exception& ex)
 	{

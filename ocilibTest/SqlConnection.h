@@ -14,7 +14,8 @@ public:
 		if (m_type == OCI_TYPE::OCI_C_API)
 		{
 			// Initialize OCI C API
-			OCI_Initialize(nullptr, nullptr, OCI_ENV_DEFAULT);
+			OCI_Initialize(nullptr, nullptr, OCI_ENV_THREADED | OCI_ENV_CONTEXT);
+			OCI_EnableWarnings(true);
 		}
 	}
 
@@ -38,7 +39,10 @@ private:
 
 public:
 	bool Build();
-
+	bool IsConnected() const
+	{
+		return !m_sqls.empty();
+	}
 	TMyOracle* GetConnection();
 
 private:

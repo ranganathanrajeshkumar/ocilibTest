@@ -69,9 +69,9 @@ public:
 private:
 	std::string m_lst_query;
 	std::string m_lst_error;
-
 	OCI_TYPE m_type;
-	
+	ocilib::MutexHandle m_mutex;
+
 	OCI_Connection* m_Connection;
 
 	std::unique_ptr<Connection> m_conn = nullptr;
