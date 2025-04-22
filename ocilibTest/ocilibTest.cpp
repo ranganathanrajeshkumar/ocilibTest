@@ -95,7 +95,7 @@ private:
         return EXIT_FAILURE;  
     }  
 
-    int loops = 1;  
+    int loops = 100;  
 
     const auto start = std::chrono::high_resolution_clock::now();  
 
@@ -113,7 +113,7 @@ private:
             }  
             employees.push_back(std::move(emp));  
         }          
-        std::cout << "[Loop ID: " << tries << "] Thread ID: " << thread_id << " | Total Employees Records build: " << employees.size() << std::endl;  
+        //std::cout << "[Loop ID: " << tries << "] Thread ID: " << thread_id << " | Total Employees Records build: " << employees.size() << std::endl;  
         employees.clear();  
     }  
 
