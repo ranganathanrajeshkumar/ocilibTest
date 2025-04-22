@@ -8,6 +8,13 @@ void TMyOracleResultSet::AddRow(const std::vector<std::string>& row)
 //----------------------------------------------------------------------------
 TMyOracleResultSet* TMyOracleResultSet::ExtractResultSet(OCI_Resultset* rs)
 {
+	if (!rs)
+	{
+		std::cerr << "[ERROR] TMyOracleResultSet::ExtractResultSet: Resultset is null" << std::endl;
+		return nullptr;
+	}
+
+	// Create a new result set object
     TMyOracleResultSet* resultSet = new TMyOracleResultSet();
 
     while (OCI_FetchNext(rs)) 

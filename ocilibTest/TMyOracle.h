@@ -60,7 +60,8 @@ public:
 		}
 	}
 
-	
+	int GetConnInstanceCounter() const { return m_conn_instance_counter; }
+
 	std::string GetLastError() const { return m_lst_error; }
 	std::string GetLastQuery() const { return m_lst_query; }
 
@@ -73,6 +74,8 @@ private:
 	ocilib::MutexHandle m_mutex;
 
 	OCI_Connection* m_Connection;
+	
+	int m_conn_instance_counter{ 0 };
 
 	std::unique_ptr<Connection> m_conn = nullptr;
 };

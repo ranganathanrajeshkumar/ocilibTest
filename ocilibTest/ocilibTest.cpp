@@ -4,9 +4,10 @@
 #include "TMyOracleResultSet.h"
 #include "SqlConnection.h"
 #include <thread>
+#include <chrono>
 // -----------------------------------------------------------------------------
 static std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
-static auto g_oci_type = OCI_TYPE::OCI_C_API;
+static auto g_oci_type = OCI_TYPE::OCI_CXX_API;
 
 // -----------------------------------------------------------------------------
 
@@ -14,29 +15,30 @@ class Employee
 {
 public:
 
-	explicit Employee(TMyOracle* sql, int id) 
-		: sql(sql), m_id(id), m_dept_id(0), m_first_name(""), m_last_name(""), m_dob(""), m_address(""), m_department("")
-    {}
-	
+    explicit Employee(TMyOracle* sql, int id)
+        : sql(sql), m_id(id), m_dept_id(0), m_first_name(""), m_last_name(""), m_dob(""), m_address(""), m_department("")
+    {
+    }
+
     ~Employee() = default;
 
-	bool Build() 
-	{
-		if (!sql)
-		{
-			std::cerr << "[ERROR] Employee::Build(): SQL connection is null" << std::endl;
-			return false;
-		}
+    bool Build()
+    {
+        if (!sql)
+        {
+            std::cerr << "[ERROR] Employee::Build(): SQL connection is null" << std::endl;
+            return false;
+        }
 
-		if (m_id <= 0)
-		{
-			std::cerr << "[ERROR] Employee::Build(): Invalid emoloyee id" << std::endl;
-			return false;
-		}
+        if (m_id <= 0)
+        {
+            std::cerr << "[ERROR] Employee::Build(): Invalid emoloyee id" << std::endl;
+            return false;
+        }
 
         std::string id = std::to_string(m_id);
 
-		const std::string query = "SELECT FIRSTNAME, LASTNAME, DOB, ADDRESS, DEPT_ID, DEPT_DESC FROM employee e INNER JOIN department d ON d.id = e.dept_id WHERE e.id =  " + id;
+        const std::string query = "SELECT FIRSTNAME, LASTNAME, DOB, ADDRESS, DEPT_ID, DEPT_DESC FROM employee e INNER JOIN department d ON d.id = e.dept_id WHERE e.id =  " + id;
 
         // Execute a query
         std::unique_ptr<TMyOracleResultSet> rs(sql->ExecuteQuery(query));
@@ -46,27 +48,27 @@ public:
             return false;
         }
 
-		// Fetch the result
-		m_first_name    = rs->Get("FIRSTNAME");
-		m_last_name     = rs->Get("LASTNAME");
-		m_dob           = rs->Get("DOB");
-		m_address       = rs->Get("ADDRESS");   
-		m_dept_id       = std::atoi(rs->Get("DEPT_ID").c_str());
-		m_department    = rs->Get("DEPT_DESC");
+        // Fetch the result
+        m_first_name = rs->Get("FIRSTNAME");
+        m_last_name = rs->Get("LASTNAME");
+        m_dob = rs->Get("DOB");
+        m_address = rs->Get("ADDRESS");
+        m_dept_id = std::atoi(rs->Get("DEPT_ID").c_str());
+        m_department = rs->Get("DEPT_DESC");
 
         return true;
-	}
+    }
 
-	std::string ToString() const 
+    std::string ToString() const
     {
         std::ostringstream out;
-		out << std::setw(10) << m_id            << " | "
-			<< std::setw(15) << m_first_name    << " | "
-			<< std::setw(15) << m_last_name     << " | "			
-			<< std::setw(30) << m_department;
-        
-		return out.str();
-	}
+        out << std::setw(10) << m_id << " | "
+            << std::setw(15) << m_first_name << " | "
+            << std::setw(15) << m_last_name << " | "
+            << std::setw(30) << m_department;
+
+        return out.str();
+    }
 
 private:
     int m_id;
@@ -79,50 +81,49 @@ private:
 
     TMyOracle* sql;
 };
- // -----------------------------------------------------------------------------
-int ocitest(TMyOracle* sql)
-{   
-    if (!sql)
-    {
-        std::cerr << "[ERROR] ocitest: Failed to get SQL connection" << std::endl;
-        return EXIT_FAILURE;
-    }
-	if (!sql->IsConnected())
-	{
-		std::cerr << "[ERROR] ocitest: SQL connection is not connected" << std::endl;
-		return EXIT_FAILURE;
-	}
-	// Get the number of loops from the user
-	//std::cout << "Enter the number of loops: ";
-	int loops = 100;
-	//std::cin >> loops;
-	
-    auto tries = 0;
-    while (tries++ < loops)
-    {
-        std::vector<std::unique_ptr<Employee>> employees;
-        for (int i = 1; i <= 1000; ++i)
-        {                                   
-            // Create an employee object
-            auto emp = std::make_unique<Employee>(sql, i);
-            if (!emp->Build())
-            {
-                std::cerr << "[WARN] Main: Failed to build employee for id=" + std::to_string(i) << std::endl;
-                continue;
-            }
-            employees.push_back(std::move(emp));
-        }
+//----------------------------------------------------------------------------
+ int ocitest(TMyOracle* sql, int thread_id)  
+ {   
+    if (!sql)  
+    {  
+        std::cerr << "[ERROR] ocitest: Failed to get SQL connection" << std::endl;  
+        return EXIT_FAILURE;  
+    }  
+    if (!sql->IsConnected())  
+    {  
+        std::cerr << "[ERROR] ocitest: SQL connection is not connected" << std::endl;  
+        return EXIT_FAILURE;  
+    }  
 
-        for (const auto& emp : employees)
-        {
-            std::cout << emp->ToString() << std::endl;
-        }
+    int loops = 1;  
 
-        employees.clear();
-    }
-    	
-	return EXIT_SUCCESS;
-}
+    const auto start = std::chrono::high_resolution_clock::now();  
+
+    auto tries = 0;  
+    while (tries++ < loops)  
+    {  
+        std::vector<std::unique_ptr<Employee>> employees;  
+        for (int i = 1; i <= 1000; ++i)  
+        {  
+            auto emp = std::make_unique<Employee>(sql, i);  
+            if (!emp->Build())  
+            {  
+                std::cerr << "[WARN] Main: Failed to build employee for id=" + std::to_string(i) << std::endl;  
+                continue;  
+            }  
+            employees.push_back(std::move(emp));  
+        }          
+        std::cout << "[Loop ID: " << tries << "] Thread ID: " << thread_id << " | Total Employees Records build: " << employees.size() << std::endl;  
+        employees.clear();  
+    }  
+
+    const auto end = std::chrono::high_resolution_clock::now();  
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();  
+
+    std::cout << "Thread ID : " << thread_id << " completed in " << duration << " ms" << std::endl;  
+
+    return EXIT_SUCCESS;  
+ }
 
 int main(int argc, const char* argv[])
 {
@@ -149,7 +150,12 @@ int main(int argc, const char* argv[])
 		for (int i = 0; i < 20; ++i)
 		{
             auto sql = g_sql_conn->GetConnection();
-			oci_test_threads.emplace_back(ocitest, sql);
+			if (!sql)
+			{
+				std::cerr << "[ERROR] Main: Failed to get SQL connection" << std::endl;
+				return EXIT_FAILURE;
+			}
+			oci_test_threads.emplace_back(ocitest, sql, i);
 		}
 		for (auto& thread : oci_test_threads)
 		{
