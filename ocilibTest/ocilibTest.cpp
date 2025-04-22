@@ -7,7 +7,7 @@
 #include <chrono>
 // -----------------------------------------------------------------------------
 static std::unique_ptr<SqlConnection> g_sql_conn = nullptr;
-static auto g_oci_type = OCI_TYPE::OCI_CXX_API;
+static auto g_oci_type = OCI_TYPE::OCI_C_API;
 
 // -----------------------------------------------------------------------------
 
@@ -113,7 +113,8 @@ private:
             }  
             employees.push_back(std::move(emp));  
         }          
-        //std::cout << "[Loop ID: " << tries << "] Thread ID: " << thread_id << " | Total Employees Records build: " << employees.size() << std::endl;  
+        
+        std::cout << "Thread ID: " << thread_id << " | [Loop ID: " << tries << "] Total Employees Records build: " << employees.size() << std::endl;
         employees.clear();  
     }  
 
