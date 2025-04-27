@@ -53,7 +53,7 @@ bool TMyOracle::Connect(const std::string& user, const std::string& password, co
 			m_Connection = OCI_ConnectionCreate(db.c_str(), user.c_str(), password.c_str(), OCI_SESSION_DEFAULT);
 			if (!m_Connection)
 			{
-				std::cerr << "[FATAL] TMyOracle::Connect: Failed to connect [" << m_conn_instance_counter << "] to database: " << OCI_ErrorGetString(OCI_GetLastError()) << std::endl;
+				std::cerr << "[FATAL] TMyOracle::Connect: Failed to connect [" << m_conn_instance_counter << "] to database: " << std::string(OCI_ErrorGetString(OCI_GetLastError())) << std::endl;
 				return false;
 			}
 
@@ -173,9 +173,7 @@ TMyOracleResultSet* TMyOracle::ExecuteQuery(const std::string& query)
 				if (!OCI_Execute(stmt))
 				{
 					m_lst_error = OCI_ErrorGetString(OCI_GetLastError());
-					std::cerr << "[" << m_conn_instance_counter << "] Failed to execute statement: " << m_lst_error << std::endl;
-					OCI_StatementFree(stmt);
-
+					std::cerr << "[" << m_conn_instance_counter << "] Failed to execute statement: " << m_lst_error << std::endl;					
 					return nullptr;
 				}
 

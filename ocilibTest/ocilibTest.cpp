@@ -179,6 +179,9 @@ int main(int argc, const char* argv[])
     {
         ocilib::Environment::Cleanup();
     }
+
+	std::cout << "Exiting main" << std::endl;
+    std::getchar();
 	return res;
 }
 

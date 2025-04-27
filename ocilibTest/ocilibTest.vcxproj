@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -147,11 +147,14 @@
   <ItemGroup>
     <ClCompile Include="ocilibTest.cpp" />
     <ClCompile Include="SqlConnection.cpp" />
+    <ClCompile Include="TAppConfig.cpp" />
     <ClCompile Include="TMyOracle.cpp" />
     <ClCompile Include="TMyOracleResultSet.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SqlConnection.h" />
+    <ClInclude Include="TAppConfig.h" />
+    <ClInclude Include="TAppConst.h" />
     <ClInclude Include="TMyOracle.h" />
     <ClInclude Include="TMyOracleResultSet.h" />
     <ClInclude Include="utils.h" />

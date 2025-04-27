@@ -23,7 +23,17 @@ class TMyOracleStatement
 {
 	OCI_Statement* stmt = nullptr;
 public:
-	explicit TMyOracleStatement(OCI_Connection* conn) : stmt(OCI_StatementCreate(conn)) {}
+	explicit TMyOracleStatement(OCI_Connection* conn) 
+	{
+		if (conn && OCI_IsConnected(conn))
+		{
+			stmt = OCI_StatementCreate(conn);
+			if (!stmt)
+			{
+				stmt = nullptr;
+			}
+		}
+	}
 	~TMyOracleStatement() { if (stmt) OCI_StatementFree(stmt); }
 
 	// Prevent copying

@@ -27,6 +27,9 @@
     <ClCompile Include="SqlConnection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TAppConfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TMyOracle.h">
@@ -40,6 +43,9 @@
     </ClInclude>
     <ClInclude Include="SqlConnection.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TAppConfig.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
